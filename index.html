@@ -38,21 +38,15 @@ h1 { margin-top: 0; font-size: 30px; color: #333; }
     border-radius: 15px;
     margin: 0 auto 15px auto;
     display: flex;
-    justify-content: space-between;
+    justify-content: center; /* Centered now that button is gone */
     align-items: center;
     box-shadow: 0 6px 15px rgba(0,0,0,0.2);
     border: 3px solid #fff;
     width: 90%;
     transition: transform 0.2s, background 0.3s;
 }
-.ps5-text { font-size: 20px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
-.ps5-mins { color: #00ffcc; font-size: 24px; text-shadow: 0 0 5px rgba(0,255,204,0.5); }
-.redeem-btn {
-    background: #ff4757; color: white; border: none; padding: 8px 12px;
-    border-radius: 10px; font-weight: bold; cursor: pointer; font-family: inherit;
-    box-shadow: 0 4px 0 #cc0000; font-size: 14px;
-}
-.redeem-btn:active { transform: translateY(4px); box-shadow: 0 0 0 #cc0000; }
+.ps5-text { font-size: 22px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+.ps5-mins { color: #00ffcc; font-size: 26px; text-shadow: 0 0 5px rgba(0,255,204,0.5); }
 
 @keyframes pulseBank {
     0% { transform: scale(1); }
@@ -179,8 +173,7 @@ select:focus { border-color: #4CAF50; }
 
     <!-- PS5 TIME BANK -->
     <div id="ps5Bank">
-        <div class="ps5-text">🎮 <span class="ps5-mins" id="ps5TimeDisplay">0</span> mins</div>
-        <button class="redeem-btn" onclick="parentRedeemTime()">Redeem Time</button>
+        <div class="ps5-text">🎮 Earned PS5 Time: <span class="ps5-mins" id="ps5TimeDisplay">0</span> mins</div>
     </div>
 
     <div class="controls-row">
@@ -190,6 +183,7 @@ select:focus { border-color: #4CAF50; }
         </select>
         <select id="mode" onchange="updateHighScoresDisplay()">
             <option value="10q">10 Questions</option>
+            <option value="20q">20 Questions</option>
             <option value="timed">Timed (60s)</option>
             <option value="practice">Practice</option>
         </select>
@@ -278,7 +272,7 @@ select:focus { border-color: #4CAF50; }
 <script>
 let score = 0, xp = 0, levelNumber = 1, streak = 0, questionsAnswered = 0;
 let correctAnswer = 0, player = "", levelType = "", topic = "", mode = "";
-let currentQuestionTopic = ""; // Tracks actual topic for fuzzy matching
+let currentQuestionTopic = ""; 
 let timeLeft = 60, timerInterval = null;
 let currentSpeechText = "";
 let isGameOverState = true; 
@@ -287,8 +281,12 @@ let isProcessing = false;
 const allTopics = ["addition", "subtraction", "multiplication", "division", "fractions", "money", "time", "patterns", "geometry", "measurement", "rounding", "logic"];
 
 // --- GAME DATA & PS5 BANK ---
-let highScores = JSON.parse(localStorage.getItem("mathGameHighScoresV2")) || { clariza: { timed: 0, "10q": 0 }, jace: { timed: 0, "10q": 0 } };
+let highScores = JSON.parse(localStorage.getItem("mathGameHighScoresV2")) || { clariza: { timed: 0, "10q": 0, "20q": 0 }, jace: { timed: 0, "10q": 0, "20q": 0 } };
 let ps5Data = JSON.parse(localStorage.getItem("mathGamePS5Bank")) || { clariza: 0, jace: 0, lastReset: Date.now() };
+
+// Safety check for players returning from an older version without 20q tracking
+if(highScores.clariza["20q"] === undefined) highScores.clariza["20q"] = 0;
+if(highScores.jace["20q"] === undefined) highScores.jace["20q"] = 0;
 
 function checkWeeklyReset() {
     if (!ps5Data.lastReset) ps5Data.lastReset = Date.now();
@@ -310,31 +308,6 @@ function checkWeeklyReset() {
 function updatePS5Display() {
     let p = document.getElementById("player").value;
     document.getElementById("ps5TimeDisplay").innerText = ps5Data[p] || 0;
-}
-
-function parentRedeemTime() {
-    let p = document.getElementById("player").value;
-    let currentMins = ps5Data[p] || 0;
-    
-    if (currentMins <= 0) {
-        alert(p.charAt(0).toUpperCase() + p.slice(1) + " has no PS5 time to redeem yet! 😢");
-        return;
-    }
-
-    let input = prompt(`Parent Check 🛑\nHow many minutes is ${p.charAt(0).toUpperCase() + p.slice(1)} redeeming to play on the PS5?\n(Max available: ${currentMins})`, "15");
-    
-    if (input !== null) {
-        let minsToRedeem = parseInt(input);
-        if (!isNaN(minsToRedeem) && minsToRedeem > 0) {
-            ps5Data[p] -= minsToRedeem;
-            if (ps5Data[p] < 0) ps5Data[p] = 0;
-            localStorage.setItem("mathGamePS5Bank", JSON.stringify(ps5Data));
-            updatePS5Display();
-            alert(`✅ Deducted ${minsToRedeem} minutes. Have fun playing!`);
-        } else {
-            alert("Invalid number entered.");
-        }
-    }
 }
 
 let clarizaRewards = ["Magic! 🦄", "Wackadoo! 🐶", "Sparkly! ✨", "Hooray! 🌈", "Super! 🎈"];
@@ -423,6 +396,8 @@ function startGame() {
         timerInterval = setInterval(updateTimer, 1000);
     } else if (mode === "10q") {
         document.getElementById("timer").innerText = "📋 Question 1 / 10";
+    } else if (mode === "20q") {
+        document.getElementById("timer").innerText = "📋 Question 1 / 20";
     } else {
         document.getElementById("timer").innerText = "🎯 Practice Mode";
     }
@@ -456,15 +431,16 @@ function triggerGameOver() {
             if(score >= 15) stars = "⭐⭐⭐"; else if(score >= 5) stars = "⭐⭐";
             title = "Time's Up!"; scoreText = "Final Score: " + score;
         }
-    } else if (mode === "10q") {
-        if (score > highScores[p]["10q"]) {
-            highScores[p]["10q"] = score;
+    } else if (mode === "10q" || mode === "20q") {
+        let totalQs = (mode === "10q") ? 10 : 20;
+        if (score > highScores[p][mode]) {
+            highScores[p][mode] = score;
             localStorage.setItem("mathGameHighScoresV2", JSON.stringify(highScores));
             isHighScore = true;
         }
-        scoreText = "You got " + score + " out of 10 right!";
-        if(score === 10) { stars = "⭐⭐⭐"; title = "Perfect! 🏆"; isHighScore = true; }
-        else if(score >= 7) { stars = "⭐⭐"; title = "Awesome Job!"; }
+        scoreText = "You got " + score + " out of " + totalQs + " right!";
+        if(score === totalQs) { stars = "⭐⭐⭐"; title = "Perfect! 🏆"; isHighScore = true; }
+        else if(score >= (totalQs * 0.7)) { stars = "⭐⭐"; title = "Awesome Job!"; }
         else { stars = "⭐"; title = "Good Practice!"; }
     } else {
         title = "Practice Finished!"; scoreText = "Questions Answered: " + score; stars = "⭐⭐⭐";
@@ -524,7 +500,7 @@ function newQuestion() {
     let activeTopic = topic;
     if (topic === "mixed") activeTopic = allTopics[rand(allTopics.length)];
     
-    currentQuestionTopic = activeTopic; // Save for the fuzzy matching logic
+    currentQuestionTopic = activeTopic; 
     let lvl = levelNumber; 
 
     if(activeTopic==="addition"){
@@ -634,28 +610,22 @@ function checkFuzzyMatch(userInput, actualAnswer, currentTopic) {
     userInput = String(userInput).trim();
     actualAnswer = String(actualAnswer).trim();
 
-    // 1. Direct Match (e.g. they typed it exactly right)
     if (userInput === actualAnswer) return true;
 
-    // 2. Numeric Match (Automatically handles "05" == "5", "5.0" == "5", "5.00" == "5" for Money/Normal math)
     if (Number(userInput) === Number(actualAnswer) && !isNaN(Number(actualAnswer)) && userInput !== "") {
         return true; 
     }
 
-    // 3. Time Fuzzy Match
     if (currentTopic === "time" || actualAnswer.includes(":")) {
-        // e.g., if answer is "3:00"
         let uParts = userInput.split(":");
         let cParts = actualAnswer.split(":");
         
-        // Handle "03:00" == "3:00"
         if (uParts.length === 2 && cParts.length === 2) {
             if (Number(uParts[0]) === Number(cParts[0]) && Number(uParts[1]) === Number(cParts[1])) {
                 return true;
             }
         }
         
-        // Handle if they forgot the colon completely (e.g., typed "300" instead of "3:00")
         let uClean = userInput.replace(/[^0-9]/g, "");
         let cClean = actualAnswer.replace(/[^0-9]/g, "");
         if (uClean === cClean && Number(uClean) > 0) return true; 
@@ -663,7 +633,6 @@ function checkFuzzyMatch(userInput, actualAnswer, currentTopic) {
 
     return false;
 }
-
 
 function submitAnswer() {
     if (isGameOverState || isProcessing) return;
@@ -674,7 +643,6 @@ function submitAnswer() {
 
     isProcessing = true; 
 
-    // USE FUZZY MATCH LOGIC
     if (checkFuzzyMatch(user, correctAnswer, currentQuestionTopic)) {
         score++; streak++; xp++;
         
@@ -687,7 +655,7 @@ function submitAnswer() {
         // Trigger pulse animation
         let bankEl = document.getElementById("ps5Bank");
         bankEl.classList.remove("pulse-anim");
-        void bankEl.offsetWidth; // trigger reflow
+        void bankEl.offsetWidth; 
         bankEl.classList.add("pulse-anim");
 
         playSound("win");
@@ -708,13 +676,14 @@ function submitAnswer() {
 
     let delay = (checkFuzzyMatch(user, correctAnswer, currentQuestionTopic)) ? 1000 : 2200;
 
-    if (mode === "10q") {
-        if (questionsAnswered >= 10) {
+    if (mode === "10q" || mode === "20q") {
+        let totalQs = (mode === "10q") ? 10 : 20;
+        if (questionsAnswered >= totalQs) {
             setTimeout(triggerGameOver, delay);
             return;
         } else {
             questionsAnswered++;
-            document.getElementById("timer").innerText = "📋 Question " + questionsAnswered + " / 10";
+            document.getElementById("timer").innerText = "📋 Question " + questionsAnswered + " / " + totalQs;
         }
     }
 

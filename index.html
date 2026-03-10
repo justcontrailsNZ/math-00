@@ -16,7 +16,7 @@ body {
     padding: 15px 10px;
     background: #e9f6ff;
     transition: background 0.5s ease;
-    touch-action: manipulation; /* Prevents double-tap zoom on mobile */
+    touch-action: manipulation;
 }
 
 #gameContainer {
@@ -278,6 +278,7 @@ select:focus { border-color: #4CAF50; }
 <script>
 let score = 0, xp = 0, levelNumber = 1, streak = 0, questionsAnswered = 0;
 let correctAnswer = 0, player = "", levelType = "", topic = "", mode = "";
+let currentQuestionTopic = ""; // Tracks actual topic for fuzzy matching
 let timeLeft = 60, timerInterval = null;
 let currentSpeechText = "";
 let isGameOverState = true; 
@@ -290,9 +291,7 @@ let highScores = JSON.parse(localStorage.getItem("mathGameHighScoresV2")) || { c
 let ps5Data = JSON.parse(localStorage.getItem("mathGamePS5Bank")) || { clariza: 0, jace: 0, lastReset: Date.now() };
 
 function checkWeeklyReset() {
-    // If no reset date exists, initialize it
     if (!ps5Data.lastReset) ps5Data.lastReset = Date.now();
-    
     let lastDate = new Date(ps5Data.lastReset);
     
     // Find midnight of the MOST RECENT Sunday
@@ -300,7 +299,6 @@ function checkWeeklyReset() {
     recentSunday.setHours(0,0,0,0);
     recentSunday.setDate(recentSunday.getDate() - recentSunday.getDay());
 
-    // If the last recorded reset happened BEFORE the most recent Sunday, it's time to wipe the bank!
     if (lastDate.getTime() < recentSunday.getTime()) {
         ps5Data.clariza = 0;
         ps5Data.jace = 0;
@@ -329,7 +327,7 @@ function parentRedeemTime() {
         let minsToRedeem = parseInt(input);
         if (!isNaN(minsToRedeem) && minsToRedeem > 0) {
             ps5Data[p] -= minsToRedeem;
-            if (ps5Data[p] < 0) ps5Data[p] = 0; // Prevent negative time
+            if (ps5Data[p] < 0) ps5Data[p] = 0;
             localStorage.setItem("mathGamePS5Bank", JSON.stringify(ps5Data));
             updatePS5Display();
             alert(`✅ Deducted ${minsToRedeem} minutes. Have fun playing!`);
@@ -338,7 +336,6 @@ function parentRedeemTime() {
         }
     }
 }
-
 
 let clarizaRewards = ["Magic! 🦄", "Wackadoo! 🐶", "Sparkly! ✨", "Hooray! 🌈", "Super! 🎈"];
 let jaceRewards = ["Roar-some! 🦖", "Turbo Speed! 🏎️", "Vroom! 🏁", "Dino-mite! 🦕", "On Fire! 🔥"];
@@ -393,7 +390,7 @@ function applyTheme() {
         playAgainBtn.className = "theme-jace-btn";
     }
     updateHighScoresDisplay();
-    updatePS5Display(); // Updates the top bank when swapping kids
+    updatePS5Display(); 
 }
 
 function updateHighScoresDisplay() {
@@ -414,7 +411,7 @@ function startGame() {
     score = 0; xp = 0; levelNumber = 1; streak = 0; timeLeft = 60; questionsAnswered = 1;
     clearInterval(timerInterval);
     
-    checkWeeklyReset(); // Make sure the week hasn't rolled over before they start
+    checkWeeklyReset(); 
 
     document.getElementById("answer").className = ""; 
     applyTheme();
@@ -526,7 +523,8 @@ function newQuestion() {
 
     let activeTopic = topic;
     if (topic === "mixed") activeTopic = allTopics[rand(allTopics.length)];
-
+    
+    currentQuestionTopic = activeTopic; // Save for the fuzzy matching logic
     let lvl = levelNumber; 
 
     if(activeTopic==="addition"){
@@ -576,10 +574,10 @@ function newQuestion() {
     else if(activeTopic==="money"){
         if(levelType==="young"){
             let a=rand(10)+1; let b=rand(10)+1; correctAnswer=a+b; 
-            showQ("$"+a+" + $"+b, a+" dollars plus "+b+" dollars");
+            showQ("What is $"+a+" + $"+b+"?", a+" dollars plus "+b+" dollars");
         } else {
             let a=rand(20)+1; let b=rand(20)+1; correctAnswer=a+b; 
-            showQ("$"+a+".00 + $"+b+".00", a+" dollars plus "+b+" dollars");
+            showQ("What is $"+a+".00 + $"+b+".00?", a+" dollars plus "+b+" dollars");
         }
     }
     else if(activeTopic==="time"){
@@ -631,21 +629,58 @@ function addNumber(n){ if(!isProcessing) document.getElementById("answer").value
 function clearAnswer(){ if(!isProcessing) document.getElementById("answer").value=""; }
 function backspace(){ if(!isProcessing) { let v=document.getElementById("answer").value; document.getElementById("answer").value=v.slice(0,-1); } }
 
+// Forgiving Logic Checker
+function checkFuzzyMatch(userInput, actualAnswer, currentTopic) {
+    userInput = String(userInput).trim();
+    actualAnswer = String(actualAnswer).trim();
+
+    // 1. Direct Match (e.g. they typed it exactly right)
+    if (userInput === actualAnswer) return true;
+
+    // 2. Numeric Match (Automatically handles "05" == "5", "5.0" == "5", "5.00" == "5" for Money/Normal math)
+    if (Number(userInput) === Number(actualAnswer) && !isNaN(Number(actualAnswer)) && userInput !== "") {
+        return true; 
+    }
+
+    // 3. Time Fuzzy Match
+    if (currentTopic === "time" || actualAnswer.includes(":")) {
+        // e.g., if answer is "3:00"
+        let uParts = userInput.split(":");
+        let cParts = actualAnswer.split(":");
+        
+        // Handle "03:00" == "3:00"
+        if (uParts.length === 2 && cParts.length === 2) {
+            if (Number(uParts[0]) === Number(cParts[0]) && Number(uParts[1]) === Number(cParts[1])) {
+                return true;
+            }
+        }
+        
+        // Handle if they forgot the colon completely (e.g., typed "300" instead of "3:00")
+        let uClean = userInput.replace(/[^0-9]/g, "");
+        let cClean = actualAnswer.replace(/[^0-9]/g, "");
+        if (uClean === cClean && Number(uClean) > 0) return true; 
+    }
+
+    return false;
+}
+
+
 function submitAnswer() {
     if (isGameOverState || isProcessing) return;
 
     let inputEl = document.getElementById("answer");
-    let user = inputEl.value.trim();
-    if (user === "") return;
+    let user = inputEl.value;
+    if (user.trim() === "") return;
 
     isProcessing = true; 
 
-    if (user == correctAnswer) {
+    // USE FUZZY MATCH LOGIC
+    if (checkFuzzyMatch(user, correctAnswer, currentQuestionTopic)) {
         score++; streak++; xp++;
         
-        // Add 1 Minute to PS5 Bank
+        // Add 2 Minutes to PS5 Bank
         let p = document.getElementById("player").value;
-        ps5Data[p] += 1;
+        ps5Data[p] += 2;
         localStorage.setItem("mathGamePS5Bank", JSON.stringify(ps5Data));
         updatePS5Display();
         
@@ -656,7 +691,7 @@ function submitAnswer() {
         bankEl.classList.add("pulse-anim");
 
         playSound("win");
-        document.getElementById("reward").innerText = currentRewards[rand(currentRewards.length)] + " (+1 Min!)";
+        document.getElementById("reward").innerText = currentRewards[rand(currentRewards.length)] + " (+2 Mins!)";
         document.getElementById("reward").style.color = (player === "clariza") ? "#d1478e" : "#cc3700";
         inputEl.classList.add("input-correct");
     } else {
@@ -671,7 +706,7 @@ function submitAnswer() {
     if (xp > 0 && xp % 10 === 0) { levelNumber++; }
     updateDisplays();
 
-    let delay = (user == correctAnswer) ? 1000 : 2200;
+    let delay = (checkFuzzyMatch(user, correctAnswer, currentQuestionTopic)) ? 1000 : 2200;
 
     if (mode === "10q") {
         if (questionsAnswered >= 10) {

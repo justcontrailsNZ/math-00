@@ -38,7 +38,7 @@ h1 { margin-top: 0; font-size: 30px; color: #333; }
     border-radius: 15px;
     margin: 0 auto 15px auto;
     display: flex;
-    justify-content: center; /* Centered now that button is gone */
+    justify-content: center; 
     align-items: center;
     box-shadow: 0 6px 15px rgba(0,0,0,0.2);
     border: 3px solid #fff;
@@ -85,10 +85,18 @@ select:focus { border-color: #4CAF50; }
 }
 #startBtn:active { transform: translateY(5px); box-shadow: 0 0 0 #388E3C; }
 
-/* Status Bar */
-.status-bar { display: flex; justify-content: space-between; margin: 20px 15px 10px; font-weight: 600; color: #555;}
-#levelDisplay { font-size: 18px; color: #4CAF50;}
+/* Status Bar & Pet Display */
+.status-bar { display: flex; justify-content: space-between; align-items: center; margin: 20px 15px 10px; font-weight: 600; color: #555;}
+#petContainer { display: flex; align-items: center; gap: 8px; font-size: 18px; color: #4CAF50; background: #e8f5e9; padding: 5px 12px; border-radius: 12px; border: 2px solid #81c784; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+#petEmoji { font-size: 28px; display: inline-block; }
 #streak { font-size: 18px; color: #ff8c00; }
+
+@keyframes popPet {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.4) rotate(10deg); }
+    100% { transform: scale(1) rotate(0deg); }
+}
+.pop-anim { animation: popPet 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
 #xpBarContainer { width: 90%; height: 22px; background: #eee; margin: 0 auto; border-radius: 12px; border: 2px solid #ccc; overflow: hidden; }
 #xpBar { height: 100%; width: 0%; background: limegreen; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -149,21 +157,26 @@ select:focus { border-color: #4CAF50; }
 .theme-clariza-btn { background: #ff69b4 !important; box-shadow: 0 5px 0 #d1478e !important; }
 .theme-clariza-btn:active { box-shadow: 0 0 0 #d1478e !important; }
 
-/* Modal */
-#gameOverModal {
+/* Modals (Game Over & Loot Chest) */
+.full-modal {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.7); z-index: 1000;
+    background: rgba(0,0,0,0.8); z-index: 1000;
     display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px);
 }
-#modalContent {
+.modal-box {
     background: white; padding: 35px 25px; border-radius: 25px; text-align: center;
     max-width: 85%; width: 340px; box-shadow: 0px 15px 30px rgba(0,0,0,0.5);
     border: 6px solid #ffcc00; animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-#modalTitle { font-size: 30px; margin-top: 0; color: #333; }
-#modalStars { font-size: 55px; margin: 10px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
-#modalScoreText { font-size: 22px; font-weight: bold; color: #555; }
+
+/* Specific Loot Chest Styles */
+#chestEmoji { font-size: 80px; margin: 10px 0; cursor: pointer; transition: transform 0.2s; display: inline-block; user-select: none; }
+#chestEmoji:hover { transform: scale(1.1); }
+@keyframes chestShake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(-10deg); } 75% { transform: rotate(10deg); } }
+.shake-anim { animation: chestShake 0.4s infinite; }
+#chestResult { font-size: 26px; font-weight: bold; color: #ff8c00; margin: 15px 0; display: none; }
+
 </style>
 </head>
 <body>
@@ -209,7 +222,11 @@ select:focus { border-color: #4CAF50; }
     <button id="startBtn" onclick="startGame()">Start Adventure! 🚀</button>
 
     <div class="status-bar">
-        <div id="levelDisplay">Level 1</div>
+        <!-- VIRTUAL PET CONTAINER -->
+        <div id="petContainer">
+            <span id="petEmoji">🥚</span>
+            <span id="petLabel">Level 1</span>
+        </div>
         <div id="streak">Streak: 0 🔥</div>
     </div>
     
@@ -260,12 +277,25 @@ select:focus { border-color: #4CAF50; }
 </div>
 
 <!-- Victory Modal -->
-<div id="gameOverModal">
-    <div id="modalContent">
-        <h2 id="modalTitle">Game Over!</h2>
-        <div id="modalStars">⭐⭐⭐</div>
-        <p id="modalScoreText">You scored X points!</p>
-        <button id="startBtn" class="theme-clariza-btn" style="margin-top:15px; padding: 12px 25px;" onclick="closeModal()">Play Again 🔄</button>
+<div id="gameOverModal" class="full-modal">
+    <div class="modal-box">
+        <h2 id="modalTitle" style="font-size:30px; margin-top:0; color:#333;">Game Over!</h2>
+        <div id="modalStars" style="font-size:55px; margin:10px 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">⭐⭐⭐</div>
+        <p id="modalScoreText" style="font-size:22px; font-weight:bold; color:#555;">You scored X points!</p>
+        <button id="playAgainBtn" class="theme-clariza-btn" style="margin-top:15px; padding: 12px 25px;" onclick="closeModal()">Play Again 🔄</button>
+    </div>
+</div>
+
+<!-- Mystery Chest Modal -->
+<div id="chestModal" class="full-modal">
+    <div class="modal-box" style="border-color: #9c27b0;">
+        <h2 style="font-size:28px; margin-top:0; color:#9c27b0;">LEVEL UP! 🎉</h2>
+        <p style="font-size:18px; color:#666; font-weight:bold; margin-bottom:5px;">Your pet is growing!<br>Tap the chest for a reward!</p>
+        
+        <div id="chestEmoji" class="shake-anim" onclick="unlockChest()">🎁</div>
+        <div id="chestResult">You found +5 Mins!</div>
+        
+        <button id="chestBtn" onclick="unlockChest()" style="background:#9c27b0; color:white; font-size:20px; font-weight:bold; padding:12px 25px; border-radius:15px; border:none; box-shadow: 0 5px 0 #6a1b9a; margin-top:10px; cursor:pointer;">Open! 🗝️</button>
     </div>
 </div>
 
@@ -284,23 +314,18 @@ const allTopics = ["addition", "subtraction", "multiplication", "division", "fra
 let highScores = JSON.parse(localStorage.getItem("mathGameHighScoresV2")) || { clariza: { timed: 0, "10q": 0, "20q": 0 }, jace: { timed: 0, "10q": 0, "20q": 0 } };
 let ps5Data = JSON.parse(localStorage.getItem("mathGamePS5Bank")) || { clariza: 0, jace: 0, lastReset: Date.now() };
 
-// Safety check for players returning from an older version without 20q tracking
 if(highScores.clariza["20q"] === undefined) highScores.clariza["20q"] = 0;
 if(highScores.jace["20q"] === undefined) highScores.jace["20q"] = 0;
 
 function checkWeeklyReset() {
     if (!ps5Data.lastReset) ps5Data.lastReset = Date.now();
     let lastDate = new Date(ps5Data.lastReset);
-    
-    // Find midnight of the MOST RECENT Sunday
     let recentSunday = new Date();
     recentSunday.setHours(0,0,0,0);
     recentSunday.setDate(recentSunday.getDate() - recentSunday.getDay());
 
     if (lastDate.getTime() < recentSunday.getTime()) {
-        ps5Data.clariza = 0;
-        ps5Data.jace = 0;
-        ps5Data.lastReset = Date.now();
+        ps5Data.clariza = 0; ps5Data.jace = 0; ps5Data.lastReset = Date.now();
         localStorage.setItem("mathGamePS5Bank", JSON.stringify(ps5Data));
     }
 }
@@ -343,28 +368,56 @@ function applyTheme() {
     let startBtn = document.getElementById("startBtn");
     let submitBtn = document.getElementById("submitBtn");
     let xpBar = document.getElementById("xpBar");
-    let playAgainBtn = document.querySelector("#modalContent button");
+    let playAgainBtn = document.getElementById("playAgainBtn");
 
     if (p === "clariza") {
         document.body.style.background = "linear-gradient(135deg, #A1C4FD 0%, #ffafbd 100%)";
         document.getElementById("gameTitle").innerText = "🦄 Clariza's Math 🐶";
         currentRewards = clarizaRewards;
         xpBar.style.background = "linear-gradient(to right, #ff0000, #ff7f00, #ffff00, #00ff00, #0000ff, #4b0082, #9400d3)";
-        startBtn.className = "theme-clariza-btn";
-        submitBtn.className = "theme-clariza-btn";
-        playAgainBtn.className = "theme-clariza-btn";
+        startBtn.className = "theme-clariza-btn"; submitBtn.className = "theme-clariza-btn"; playAgainBtn.className = "theme-clariza-btn";
     } else {
         document.body.style.background = "linear-gradient(135deg, #f12711 0%, #f5af19 100%)";
         document.getElementById("gameTitle").innerText = "🦖 Jace's Math 🏎️";
         currentRewards = jaceRewards;
         xpBar.style.background = "repeating-linear-gradient(45deg, #000, #000 10px, #fff 10px, #fff 20px)";
-        startBtn.className = "theme-jace-btn";
-        submitBtn.className = "theme-jace-btn";
-        playAgainBtn.className = "theme-jace-btn";
+        startBtn.className = "theme-jace-btn"; submitBtn.className = "theme-jace-btn"; playAgainBtn.className = "theme-jace-btn";
     }
     updateHighScoresDisplay();
     updatePS5Display(); 
+    updatePet(); // Update the egg/pet visually on load
 }
+
+// --- VIRTUAL PET LOGIC ---
+function updatePet() {
+    let p = document.getElementById("player").value;
+    let petEl = document.getElementById("petEmoji");
+    let labelEl = document.getElementById("petLabel");
+    let petStr = "🥚";
+
+    if (p === "clariza") {
+        if (levelNumber === 1) petStr = "🥚";
+        else if (levelNumber === 2) petStr = "🐣";
+        else if (levelNumber === 3) petStr = "🦄";
+        else if (levelNumber === 4) petStr = "🦄✨";
+        else petStr = "🦄👑";
+    } else {
+        if (levelNumber === 1) petStr = "🥚";
+        else if (levelNumber === 2) petStr = "🦎";
+        else if (levelNumber === 3) petStr = "🦖";
+        else if (levelNumber === 4) petStr = "🦖🔥";
+        else petStr = "🦖🕶️";
+    }
+
+    petEl.innerText = petStr;
+    labelEl.innerText = "Level " + levelNumber;
+
+    // Trigger visual pop
+    petEl.classList.remove("pop-anim");
+    void petEl.offsetWidth; 
+    petEl.classList.add("pop-anim");
+}
+
 
 function updateHighScoresDisplay() {
     let p = document.getElementById("player").value;
@@ -394,10 +447,9 @@ function startGame() {
     if (mode === "timed") {
         document.getElementById("timer").innerText = "⏳ Time: " + timeLeft;
         timerInterval = setInterval(updateTimer, 1000);
-    } else if (mode === "10q") {
-        document.getElementById("timer").innerText = "📋 Question 1 / 10";
-    } else if (mode === "20q") {
-        document.getElementById("timer").innerText = "📋 Question 1 / 20";
+    } else if (mode === "10q" || mode === "20q") {
+        let maxQs = (mode === "10q") ? 10 : 20;
+        document.getElementById("timer").innerText = "📋 Question 1 / " + maxQs;
     } else {
         document.getElementById("timer").innerText = "🎯 Practice Mode";
     }
@@ -416,17 +468,12 @@ function updateTimer() {
 function triggerGameOver() {
     isGameOverState = true;
     let p = document.getElementById("player").value;
-    let isHighScore = false;
-    let stars = "⭐";
-    let title = "Great Try!";
-    let scoreText = "";
+    let isHighScore = false; let stars = "⭐"; let title = "Great Try!"; let scoreText = "";
 
     if (mode === "timed") {
         if (score > highScores[p].timed) {
-            highScores[p].timed = score;
-            localStorage.setItem("mathGameHighScoresV2", JSON.stringify(highScores));
-            isHighScore = true; title = "🎉 NEW RECORD! 🎉"; stars = "⭐⭐⭐";
-            scoreText = "Amazing! You scored " + score + " points!";
+            highScores[p].timed = score; localStorage.setItem("mathGameHighScoresV2", JSON.stringify(highScores));
+            isHighScore = true; title = "🎉 NEW RECORD! 🎉"; stars = "⭐⭐⭐"; scoreText = "Amazing! You scored " + score + " points!";
         } else {
             if(score >= 15) stars = "⭐⭐⭐"; else if(score >= 5) stars = "⭐⭐";
             title = "Time's Up!"; scoreText = "Final Score: " + score;
@@ -434,8 +481,7 @@ function triggerGameOver() {
     } else if (mode === "10q" || mode === "20q") {
         let totalQs = (mode === "10q") ? 10 : 20;
         if (score > highScores[p][mode]) {
-            highScores[p][mode] = score;
-            localStorage.setItem("mathGameHighScoresV2", JSON.stringify(highScores));
+            highScores[p][mode] = score; localStorage.setItem("mathGameHighScoresV2", JSON.stringify(highScores));
             isHighScore = true;
         }
         scoreText = "You got " + score + " out of " + totalQs + " right!";
@@ -447,7 +493,6 @@ function triggerGameOver() {
     }
 
     updateHighScoresDisplay();
-
     document.getElementById("modalTitle").innerText = title;
     document.getElementById("modalStars").innerText = stars;
     document.getElementById("modalScoreText").innerText = scoreText;
@@ -469,10 +514,70 @@ function closeModal() {
     isGameOverState = true;
 }
 
+// --- MYSTERY CHEST LOGIC ---
+let chestIsOpened = false;
+
+function showChestModal() {
+    isProcessing = true; // Lock the game in the background
+    if (mode === "timed") clearInterval(timerInterval); // PAUSE the timer so they don't lose time!
+    
+    chestIsOpened = false;
+    document.getElementById("chestEmoji").innerText = "🎁";
+    document.getElementById("chestEmoji").classList.add("shake-anim");
+    document.getElementById("chestResult").style.display = "none";
+    document.getElementById("chestBtn").innerText = "Open! 🗝️";
+    document.getElementById("chestBtn").onclick = unlockChest;
+    document.getElementById("chestEmoji").onclick = unlockChest;
+    
+    document.getElementById("chestModal").style.display = "flex";
+}
+
+function unlockChest() {
+    if (chestIsOpened) return;
+    chestIsOpened = true;
+
+    // Loot Box Math! Most likely 5, sometimes 10, rarely 15.
+    let randNum = Math.random();
+    let bonusMins = 5;
+    if (randNum > 0.90) bonusMins = 15; // 10% chance for Jackpot
+    else if (randNum > 0.70) bonusMins = 10; // 20% chance for Epic
+
+    // Update Bank
+    let p = document.getElementById("player").value;
+    ps5Data[p] += bonusMins;
+    localStorage.setItem("mathGamePS5Bank", JSON.stringify(ps5Data));
+    updatePS5Display();
+
+    // Visuals
+    playSound("win");
+    confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 }, zIndex: 2000 });
+    
+    document.getElementById("chestEmoji").classList.remove("shake-anim");
+    document.getElementById("chestEmoji").innerText = (bonusMins === 15) ? "💎" : "🎉";
+    
+    let resultText = document.getElementById("chestResult");
+    if(bonusMins === 15) resultText.innerText = "JACKPOT! +" + bonusMins + " Mins! 💰";
+    else if(bonusMins === 10) resultText.innerText = "EPIC! +" + bonusMins + " Mins! 🔥";
+    else resultText.innerText = "Nice! +" + bonusMins + " Mins! 🎮";
+    
+    resultText.style.display = "block";
+
+    let btn = document.getElementById("chestBtn");
+    btn.innerText = "Awesome! ➡️";
+    btn.onclick = closeChestModal;
+    document.getElementById("chestEmoji").onclick = closeChestModal;
+}
+
+function closeChestModal() {
+    document.getElementById("chestModal").style.display = "none";
+    if (mode === "timed" && !isGameOverState) timerInterval = setInterval(updateTimer, 1000); // Resume timer
+    advanceGameFlow(); // Move to the next question or game over screen
+}
+
+
 function updateDisplays() {
     document.getElementById("score").innerText = "Score: " + score;
     document.getElementById("streak").innerText = "Streak: " + streak + " 🔥";
-    document.getElementById("levelDisplay").innerText = "Level " + levelNumber;
     document.getElementById("xpBar").style.width = (xp % 10) * 10 + "%";
 }
 
@@ -605,32 +710,19 @@ function addNumber(n){ if(!isProcessing) document.getElementById("answer").value
 function clearAnswer(){ if(!isProcessing) document.getElementById("answer").value=""; }
 function backspace(){ if(!isProcessing) { let v=document.getElementById("answer").value; document.getElementById("answer").value=v.slice(0,-1); } }
 
-// Forgiving Logic Checker
 function checkFuzzyMatch(userInput, actualAnswer, currentTopic) {
-    userInput = String(userInput).trim();
-    actualAnswer = String(actualAnswer).trim();
-
+    userInput = String(userInput).trim(); actualAnswer = String(actualAnswer).trim();
     if (userInput === actualAnswer) return true;
-
-    if (Number(userInput) === Number(actualAnswer) && !isNaN(Number(actualAnswer)) && userInput !== "") {
-        return true; 
-    }
+    if (Number(userInput) === Number(actualAnswer) && !isNaN(Number(actualAnswer)) && userInput !== "") return true; 
 
     if (currentTopic === "time" || actualAnswer.includes(":")) {
-        let uParts = userInput.split(":");
-        let cParts = actualAnswer.split(":");
-        
+        let uParts = userInput.split(":"); let cParts = actualAnswer.split(":");
         if (uParts.length === 2 && cParts.length === 2) {
-            if (Number(uParts[0]) === Number(cParts[0]) && Number(uParts[1]) === Number(cParts[1])) {
-                return true;
-            }
+            if (Number(uParts[0]) === Number(cParts[0]) && Number(uParts[1]) === Number(cParts[1])) return true;
         }
-        
-        let uClean = userInput.replace(/[^0-9]/g, "");
-        let cClean = actualAnswer.replace(/[^0-9]/g, "");
+        let uClean = userInput.replace(/[^0-9]/g, ""); let cClean = actualAnswer.replace(/[^0-9]/g, "");
         if (uClean === cClean && Number(uClean) > 0) return true; 
     }
-
     return false;
 }
 
@@ -642,21 +734,18 @@ function submitAnswer() {
     if (user.trim() === "") return;
 
     isProcessing = true; 
+    let leveledUp = false;
 
     if (checkFuzzyMatch(user, correctAnswer, currentQuestionTopic)) {
         score++; streak++; xp++;
         
-        // Add 2 Minutes to PS5 Bank
         let p = document.getElementById("player").value;
-        ps5Data[p] += 2;
+        ps5Data[p] += 2; // Base rate: +2 Mins
         localStorage.setItem("mathGamePS5Bank", JSON.stringify(ps5Data));
         updatePS5Display();
         
-        // Trigger pulse animation
         let bankEl = document.getElementById("ps5Bank");
-        bankEl.classList.remove("pulse-anim");
-        void bankEl.offsetWidth; 
-        bankEl.classList.add("pulse-anim");
+        bankEl.classList.remove("pulse-anim"); void bankEl.offsetWidth; bankEl.classList.add("pulse-anim");
 
         playSound("win");
         document.getElementById("reward").innerText = currentRewards[rand(currentRewards.length)] + " (+2 Mins!)";
@@ -671,23 +760,37 @@ function submitAnswer() {
         inputEl.classList.add("input-wrong");
     }
 
-    if (xp > 0 && xp % 10 === 0) { levelNumber++; }
+    if (xp > 0 && xp % 10 === 0) { 
+        levelNumber++; 
+        leveledUp = true; 
+        updatePet(); // Pet hatches or evolves!
+    }
+    
     updateDisplays();
 
     let delay = (checkFuzzyMatch(user, correctAnswer, currentQuestionTopic)) ? 1000 : 2200;
 
+    // Check if we hit a chest event
+    if (leveledUp) {
+        setTimeout(showChestModal, delay); // Show chest after the short delay
+    } else {
+        setTimeout(advanceGameFlow, delay);
+    }
+}
+
+// Proceeds to next question OR game over
+function advanceGameFlow() {
     if (mode === "10q" || mode === "20q") {
         let totalQs = (mode === "10q") ? 10 : 20;
         if (questionsAnswered >= totalQs) {
-            setTimeout(triggerGameOver, delay);
+            triggerGameOver();
             return;
         } else {
             questionsAnswered++;
             document.getElementById("timer").innerText = "📋 Question " + questionsAnswered + " / " + totalQs;
         }
     }
-
-    setTimeout(newQuestion, delay);
+    newQuestion();
 }
 
 document.addEventListener("keydown", function(e) {
@@ -700,7 +803,6 @@ document.addEventListener("keydown", function(e) {
     if(e.key === ":") { addNumber(":"); }
 });
 
-// Run Weekly Check on load
 checkWeeklyReset();
 applyTheme();
 
